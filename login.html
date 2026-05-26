@@ -82,30 +82,54 @@
             icon.classList.toggle('fa-eye-slash');
         });
 
+        // Mapa de erros Firebase → mensagens amigáveis em português
+        const firebaseErrors = {
+            "auth/invalid-email":           "E-mail com formato inválido.",
+            "auth/user-not-found":          "Usuário não encontrado. Verifique o e-mail.",
+            "auth/wrong-password":          "Senha incorreta. Tente novamente.",
+            "auth/invalid-credential":      "Credenciais inválidas. Verifique e-mail e senha.",
+            "auth/too-many-requests":       "Muitas tentativas. Aguarde alguns minutos.",
+            "auth/user-disabled":           "Esta conta foi desativada.",
+            "auth/network-request-failed":  "Sem conexão com a internet.",
+            "auth/unauthorized-domain":     "Domínio não autorizado no Firebase. Adicione este domínio em Authentication → Configurações → Domínios autorizados.",
+            "auth/operation-not-allowed":   "Login por e-mail/senha não está habilitado no Firebase.",
+        };
+
         // Lógica de Login
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('username').value.trim();
             const pass = document.getElementById('password').value.trim();
             const btn = document.getElementById('btn-login');
+            const errorDiv = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+
+            // Esconde erro anterior
+            errorDiv.classList.add('hidden');
 
             if (!pass.startsWith("AESA_ADS-")) {
-                alert("Erro: A senha deve começar com AESA_ADS-");
+                errorText.innerText = "A senha deve começar com AESA_ADS-";
+                errorDiv.classList.remove('hidden');
                 return;
             }
 
-            btn.innerHTML = "Autenticando...";
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Autenticando...`;
+
             const email = input.includes('@') ? input : input.toLowerCase().replace(/\s/g, '') + "@sacpv.com";
 
             try {
                 await signInWithEmailAndPassword(auth, email, pass);
+                btn.innerHTML = `<i class="fa-solid fa-check"></i> Acesso concedido!`;
                 window.location.href = "painel.html";
             } catch (error) {
-                // Isso vai mostrar exatamente o que está errado
-                console.error("Erro Firebase:", error.code);
-                document.getElementById('error-text').innerText = "Erro: " + error.code;
-                document.getElementById('error-message').classList.remove('hidden');
-                btn.innerHTML = "Acessar Centro Tático";
+                console.error("Erro Firebase:", error.code, error.message);
+                // Mostra mensagem legível ou o código bruto como fallback
+                const msg = firebaseErrors[error.code] || ("Erro técnico: " + error.code);
+                errorText.innerText = msg;
+                errorDiv.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Acessar Centro Tático`;
             }
         });
     </script>
