@@ -100,7 +100,10 @@
             try {
                 await signInWithEmailAndPassword(auth, email, pass);
                 window.location.href = "painel.html";
-            } catch {
+            } catch (error) {
+                // Isso vai mostrar exatamente o que está errado
+                console.error("Erro Firebase:", error.code);
+                document.getElementById('error-text').innerText = "Erro: " + error.code;
                 document.getElementById('error-message').classList.remove('hidden');
                 btn.innerHTML = "Acessar Centro Tático";
             }
