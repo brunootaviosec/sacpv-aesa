@@ -1,12 +1,23 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SACPV - Centro de Comando Avançado</title>
+    <!-- Firebase SDK Compat para autenticação -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js para gráficos DSP -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- HTML2PDF para gerar PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
@@ -31,7 +42,6 @@
         
         #pdf-template-container { position: absolute; left: -9999px; top: 0; }
         
-        /* Efeito de scanline para o terminal simulado */
         .scanline {
             width: 100%; height: 100px; z-index: 10; position: absolute; pointer-events: none;
             background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(34,197,94,0.2) 50%, rgba(0,0,0,0) 100%);
@@ -740,6 +750,23 @@
                 }, 1000);
             });
         }
-    </script>
+    
+        // SEGURANÇA FIREBASE: Bloqueio de acesso não autorizado
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJgswWkNQwXLaBuW3dRZTc9_mDat8K3-E",
+            authDomain: "sacpv-2026.firebaseapp.com",
+            projectId: "sacpv-2026",
+            storageBucket: "sacpv-2026.firebasestorage.app",
+            messagingSenderId: "643821280559",
+            appId: "1:643821280559:web:3f75b1f82266313306a05a"
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        firebase.auth().onAuthStateChanged((user) => {
+            if (!user) {
+                window.location.href = "login.html"; 
+            }
+        });
+</script>
 </body>
 </html>
