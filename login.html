@@ -62,7 +62,7 @@
 
         // CONFIGURAÇÃO FIREBASE
         const firebaseConfig = {
-            apiKey: "AIzaSyAJgswWkNQwXLaBuW3dRZTc9_mDat8K3-E",
+            apiKey: "AIzaSyAJgsWmkNQwxLeBuw3dRZTc9_mDat8K3-E",
             authDomain: "sacpv-2026.firebaseapp.com",
             projectId: "sacpv-2026",
             storageBucket: "sacpv-2026.firebasestorage.app",
@@ -82,20 +82,18 @@
             icon.classList.toggle('fa-eye-slash');
         });
 
-        // Mapa de erros Firebase → mensagens amigáveis em português
         const firebaseErrors = {
             "auth/invalid-email":           "E-mail com formato inválido.",
-            "auth/user-not-found":          "Usuário não encontrado. Verifique o e-mail.",
-            "auth/wrong-password":          "Senha incorreta. Tente novamente.",
-            "auth/invalid-credential":      "Credenciais inválidas. Verifique e-mail e senha.",
+            "auth/user-not-found":          "Usuário não encontrado.",
+            "auth/wrong-password":          "Senha incorreta.",
+            "auth/invalid-credential":      "Credenciais inválidas.",
             "auth/too-many-requests":       "Muitas tentativas. Aguarde alguns minutos.",
             "auth/user-disabled":           "Esta conta foi desativada.",
             "auth/network-request-failed":  "Sem conexão com a internet.",
-            "auth/unauthorized-domain":     "Domínio não autorizado no Firebase. Adicione este domínio em Authentication → Configurações → Domínios autorizados.",
-            "auth/operation-not-allowed":   "Login por e-mail/senha não está habilitado no Firebase.",
+            "auth/unauthorized-domain":     "Domínio não autorizado no Firebase.",
+            "auth/api-key-not-valid.-please-pass-a-valid-api-key.": "Chave de API inválida. Contate o administrador.",
         };
 
-        // Lógica de Login
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('username').value.trim();
@@ -104,7 +102,6 @@
             const errorDiv = document.getElementById('error-message');
             const errorText = document.getElementById('error-text');
 
-            // Esconde erro anterior
             errorDiv.classList.add('hidden');
 
             if (!pass.startsWith("AESA_ADS-")) {
@@ -123,9 +120,8 @@
                 btn.innerHTML = `<i class="fa-solid fa-check"></i> Acesso concedido!`;
                 window.location.href = "painel.html";
             } catch (error) {
-                console.error("Erro Firebase:", error.code, error.message);
-                // Mostra mensagem legível ou o código bruto como fallback
-                const msg = firebaseErrors[error.code] || ("Erro técnico: " + error.code);
+                console.error("Erro Firebase:", error.code);
+                const msg = firebaseErrors[error.code] || ("Erro: " + error.code);
                 errorText.innerText = msg;
                 errorDiv.classList.remove('hidden');
                 btn.disabled = false;
