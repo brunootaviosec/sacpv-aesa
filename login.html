@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SACPV - Acesso Tático Restrito</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0b1120; background-image: radial-gradient(circle at center, #1e3a8a 0%, #0b1120 100%); color: #f8fafc; }
+        .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .input-field { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; transition: all 0.3s ease; }
+        .input-field:focus { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); outline: none; }
+    </style>
+</head>
+<body class="h-screen flex items-center justify-center relative overflow-hidden">
+    <div class="absolute inset-0 z-0 flex items-center justify-center opacity-10 pointer-events-none">
+        <div class="w-[800px] h-[800px] border border-blue-500 rounded-full absolute animate-[ping_4s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+    </div>
+
+    <div class="glass-panel w-full max-w-md p-10 rounded-2xl z-10 relative">
+        <div class="text-center mb-8">
+            <i class="fa-solid fa-shield-halved text-blue-500 text-5xl mb-4"></i>
+            <h1 class="text-3xl font-black tracking-widest uppercase text-white">SACPV</h1>
+            <p class="text-blue-400 text-sm font-bold tracking-widest mt-1">Terminal de Autenticação</p>
+        </div>
+
+        <div id="error-message" class="hidden bg-red-900/50 border border-red-500 text-red-300 px-4 py-3 rounded-lg mb-6 text-sm text-center font-medium shadow-lg">
+            <i class="fa-solid fa-triangle-exclamation mr-2"></i> <span id="error-text">Credenciais inválidas.</span>
+        </div>
+
+        <form id="login-form" class="space-y-6">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Identificação</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class="fa-solid fa-user text-slate-500"></i></div>
+                    <input type="text" id="username" placeholder="Seu nome ou e-mail" required class="input-field w-full pl-11 pr-4 py-3 rounded-lg font-medium">
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Chave Criptográfica</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class="fa-solid fa-key text-slate-500"></i></div>
+                    <input type="password" id="password" placeholder="AESA_ADS-*****" required class="input-field w-full pl-11 pr-12 py-3 rounded-lg font-medium">
+                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer text-slate-500 hover:text-blue-400" id="toggle-password">
+                        <i class="fa-solid fa-eye" id="eye-icon"></i>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-lg transition flex items-center justify-center gap-2 mt-4">
+                <i class="fa-solid fa-right-to-bracket"></i> Acessar Centro Tático
+            </button>
+        </form>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // CONFIGURAÇÃO FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyAJgswWkNQwXLaBuW3dRZTc9_mDat8K3-E",
+            authDomain: "sacpv-2026.firebaseapp.com",
+            projectId: "sacpv-2026",
+            storageBucket: "sacpv-2026.firebasestorage.app",
+            messagingSenderId: "643821280559",
+            appId: "1:643821280559:web:3f75b1f82266313306a05a"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Lógica de Mostrar/Esconder Senha
+        document.getElementById('toggle-password').addEventListener('click', () => {
+            const pass = document.getElementById('password');
+            const icon = document.getElementById('eye-icon');
+            pass.type = pass.type === 'password' ? 'text' : 'password';
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+        });
+
+        // Lógica de Login
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            const btn = document.getElementById('btn-login');
+
+            if (!pass.startsWith("AESA_ADS-")) {
+                alert("Erro: A senha deve começar com AESA_ADS-");
+                return;
+            }
+
+            btn.innerHTML = "Autenticando...";
+            const email = input.includes('@') ? input : input.toLowerCase().replace(/\s/g, '') + "@sacpv.com";
+
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                window.location.href = "painel.html";
+            } catch {
+                document.getElementById('error-message').classList.remove('hidden');
+                btn.innerHTML = "Acessar Centro Tático";
+            }
+        });
+    </script>
+</body>
+</html>

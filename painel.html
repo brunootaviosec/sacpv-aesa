@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SACPV - Centro de Comando Avançado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Merriweather:ital,wght@1,300;1,700&family=Dancing+Script:wght@700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; background-color: #0b1120; color: #f8fafc; }
+        .math-font { font-family: 'Merriweather', serif; font-style: italic; }
+        .signature-font { font-family: 'Dancing Script', cursive; font-size: 2.8rem; color: #1e3a8a; }
+        .terminal-font { font-family: 'JetBrains Mono', monospace; }
+        
+        .glass-panel { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .map-dark { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(85%); }
+        
+        .pulse-red { animation: pulseRed 1.5s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        
+        .pulse-yellow { animation: pulseYellow 1.5s infinite; }
+        @keyframes pulseYellow { 0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(234, 179, 8, 0); } 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); } }
+
+        .nav-btn.active { background-color: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.5); color: #60a5fa; }
+        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: #0f172a; } ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        
+        #pdf-template-container { position: absolute; left: -9999px; top: 0; }
+        
+        /* Efeito de scanline para o terminal simulado */
+        .scanline {
+            width: 100%; height: 100px; z-index: 10; position: absolute; pointer-events: none;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(34,197,94,0.2) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.1; animation: scanline 6s linear infinite;
+        }
+        @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(1000%); } }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden selection:bg-blue-500 selection:text-white relative">
+
+    <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between hidden md:flex z-20 shadow-2xl relative overflow-y-auto">
+        <div>
+            <div class="p-6 border-b border-slate-800 flex items-center gap-3 sticky top-0 bg-slate-900 z-10">
+                <i class="fa-solid fa-shield-halved text-blue-500 text-3xl shadow-blue-500"></i>
+                <div>
+                    <h1 class="font-bold text-xl tracking-wide text-white">SACPV</h1>
+                    <p class="text-xs text-blue-400 font-bold uppercase tracking-wider">Centro Tático</p>
+                </div>
+            </div>
+            <nav class="p-4 space-y-2">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition border border-transparent text-left"><i class="fa-solid fa-satellite-dish w-5 text-center"></i> <span class="font-medium">Monitoramento</span></button>
+                <button onclick="switchTab('mapa')" id="btn-mapa" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition border border-transparent text-left"><i class="fa-solid fa-map-location-dot w-5 text-center"></i> <span class="font-medium">Mapa de Recife</span></button>
+                <button onclick="switchTab('dsp')" id="btn-dsp" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition border border-transparent text-left"><i class="fa-solid fa-chart-line w-5 text-center"></i> <span class="font-medium">Gráficos e DSP</span></button>
+                <button onclick="switchTab('camera')" id="btn-camera" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition border border-transparent text-left"><i class="fa-solid fa-video w-5 text-center text-red-400"></i> <span class="font-medium">Câmeras Ao Vivo</span></button>
+                <button onclick="switchTab('lora')" id="btn-lora" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition border border-transparent text-left"><i class="fa-solid fa-tower-broadcast w-5 text-center"></i> <span class="font-medium">Rede LoRaWAN</span></button>
+                <button onclick="switchTab('despacho')" id="btn-despacho" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition border border-transparent text-left"><i class="fa-solid fa-file-pdf w-5 text-center text-orange-400"></i> <span class="font-medium">Emissão de PDF</span></button>
+                
+                <div class="pt-4 pb-2">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest px-4 mb-2">Comando Integrado</p>
+                    <button onclick="switchTab('c4isr')" id="btn-c4isr" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition border border-transparent text-left">
+                        <i class="fa-solid fa-globe w-5 text-center text-purple-500"></i> <span class="font-medium">Gestão Avançada (C4ISR)</span>
+                    </button>
+                </div>
+            </nav>
+        </div>
+        <div class="p-6 border-t border-slate-800 bg-slate-900/50 sticky bottom-0">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border-2 border-green-500 relative">
+                    <i class="fa-solid fa-user-shield text-slate-300"></i>
+                    <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-900 rounded-full"></span>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-white">Guarnição Sul</p>
+                    <p class="text-xs text-green-400 font-mono" id="lora-status-sidebar">Ping: 12ms</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto relative bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] bg-blend-overlay">
+        
+        <header class="h-20 glass-panel border-b border-slate-800 sticky top-0 z-30 flex items-center justify-between px-8">
+            <div>
+                <h2 id="header-title" class="text-2xl font-bold text-white uppercase tracking-wide">Visão Geral do Perímetro</h2>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-4 bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700 shadow-inner">
+                    <div class="text-right">
+                        <p class="text-xs text-blue-400 font-bold uppercase tracking-wider">Recife (Ao Vivo)</p>
+                        <p class="text-sm font-bold text-white"><i class="fa-solid fa-temperature-half text-orange-400"></i> <span id="live-temp">28°C</span> | <i class="fa-solid fa-wind text-teal-400"></i> <span id="live-wind">14 km/h</span></p>
+                    </div>
+                </div>
+                <div class="text-right border-l border-slate-700 pl-6">
+                    <p id="clock" class="text-2xl font-bold text-white font-mono tracking-widest text-shadow">00:00:00</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="p-6 lg:p-10 max-w-7xl mx-auto w-full pb-20">
+            
+            <section id="tab-dashboard" class="tab-content space-y-6 block fade-in">
+                 
+                 <div id="main-alert-box" class="glass-panel rounded-2xl p-8 border-l-8 border-green-600 bg-gradient-to-r from-green-900/40 to-transparent flex flex-col xl:flex-row justify-between items-center gap-8 shadow-2xl relative overflow-hidden transition-all duration-700">
+                    <div class="z-10 flex-1">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div id="alert-icon-bg" class="bg-green-500/20 p-4 rounded-full border border-green-500/50 transition-colors">
+                                <i id="alert-icon" class="fa-solid fa-check-circle text-4xl text-green-500 transition-colors"></i>
+                            </div>
+                            <div>
+                                <h2 id="alert-title" class="text-4xl font-extrabold text-green-500 tracking-tight drop-shadow-md transition-colors">OPERAÇÃO NORMALIZADA</h2>
+                                <p id="alert-subtitle" class="text-green-300 text-lg mt-1 font-medium transition-colors">Mar calmo e seguro. Sistema em monitoramento padrão.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col sm:flex-row xl:flex-col gap-3 z-10 w-full xl:w-auto">
+                        <button onclick="alert('Sirenes locais acionadas para alerta imediato aos banhistas!')" class="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_20px_rgba(239,68,68,0.3)] transition flex items-center justify-center gap-3 border border-red-400">
+                            <i class="fa-solid fa-bullhorn"></i> Sirene Sonora Local
+                        </button>
+                        <button onclick="alert('Transdutores piezoelétricos emitindo ondas preventivas (20-50kHz).')" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_20px_rgba(168,85,247,0.3)] transition flex items-center justify-center gap-3 border border-purple-400">
+                            <i class="fa-solid fa-fish-fins"></i> Acionar Sonar Repulsor
+                        </button>
+                        <button onclick="forceNormalState()" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_20px_rgba(34,197,94,0.3)] transition flex items-center justify-center gap-3 border border-green-400">
+                            <i class="fa-solid fa-check-double"></i> Tudo OK (Forçar Normal)
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-white mb-4 border-b border-slate-800 pb-2 flex justify-between items-center">
+                        <span><i class="fa-solid fa-network-wired text-blue-500 mr-2"></i> Malha de Sensoriamento de Borda (Modo: <span id="auto-mode-text" class="text-blue-400 font-mono text-sm">Automático Rotativo</span>)</span>
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+                        <div id="boia-01-card" class="glass-panel rounded-xl p-5 border-t-4 border-green-500 transition-colors"><h4 class="text-2xl font-black text-white mb-1">B-01</h4><p id="boia-01-text" class="text-sm text-green-400 font-bold uppercase">Normal: <span id="vel-b01">0.31</span> m/s</p></div>
+                        <div id="boia-02-card" class="glass-panel rounded-xl p-5 border-t-4 border-green-500 transition-colors"><h4 class="text-2xl font-black text-white mb-1">B-02</h4><p id="boia-02-text" class="text-sm text-green-400 font-bold uppercase">Normal: <span id="vel-b02">0.42</span> m/s</p></div>
+                        <div id="boia-03-card" class="glass-panel rounded-xl p-5 border-t-4 border-green-500 transition-colors"><h4 class="text-2xl font-black text-white mb-1">B-03</h4><p id="boia-03-text" class="text-sm text-green-400 font-bold uppercase">Normal: <span id="vel-b03">0.35</span> m/s</p></div>
+                        <div id="boia-04-card" class="glass-panel rounded-xl p-5 border-t-4 border-green-500 transition-colors"><h4 class="text-2xl font-black text-white mb-1">B-04</h4><p id="boia-04-text" class="text-sm text-green-400 font-bold uppercase">Normal: <span id="vel-b04">0.28</span> m/s</p></div>
+                        <div id="boia-05-card" class="glass-panel rounded-xl p-5 border-t-4 border-green-500 transition-colors"><h4 class="text-2xl font-black text-white mb-1">B-05</h4><p id="boia-05-text" class="text-sm text-green-400 font-bold uppercase">Normal: <span id="vel-b05">0.33</span> m/s</p></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-mapa" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <div><h3 class="text-xl font-bold text-white"><i class="fa-solid fa-location-crosshairs text-blue-500 mr-2"></i>Cartografia Integrada e GPS RTK</h3><p class="text-slate-400 text-sm">Foco: Praia de Boa Viagem e Pina (Recife - PE)</p></div>
+                </div>
+                <div class="w-full h-[600px] bg-slate-800 rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl relative">
+                    <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" class="map-dark" src="https://www.openstreetmap.org/export/embed.html?bbox=-34.925%2C-8.140%2C-34.880%2C-8.080&amp;layer=mapnik" frameborder="0"></iframe>
+                </div>
+            </section>
+
+            <section id="tab-dsp" class="tab-content hidden space-y-6">
+                <div class="glass-panel p-6 rounded-2xl border border-slate-700">
+                    <h3 class="text-2xl font-bold text-white mb-1"><i class="fa-solid fa-wave-square text-purple-500 mr-2"></i>Processamento Digital de Sinais (DSP) - Sonar Doppler</h3>
+                    <p class="text-slate-400 mb-6">Gráfico sendo atualizado em tempo real via telemetria da boia pivô (B-03).</p>
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-inner h-[450px] w-full relative">
+                        <canvas id="dspChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-camera" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <div><h3 class="text-xl font-bold text-white"><i class="fa-solid fa-video text-red-500 mr-2"></i>Monitoramento Visual CFTV</h3><p class="text-slate-400 text-sm">Integração com Câmeras Ao Vivo (Recife - PE)</p></div>
+                    <span class="bg-red-500/20 text-red-400 text-xs px-3 py-1 rounded-full border border-red-500 font-bold animate-pulse"><i class="fa-solid fa-circle text-[8px] mr-1"></i> GRAVANDO</span>
+                </div>
+                <div class="w-full h-[650px] bg-black rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl relative">
+                    <iframe class="w-full h-full" src="https://climaaovivo.com.br/pe/recife-bugan-hotel-by-atlantica" sandbox="allow-scripts allow-same-origin allow-popups" referrerpolicy="no-referrer" frameborder="0"></iframe>
+                </div>
+            </section>
+
+            <section id="tab-lora" class="tab-content hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-700">
+                        <h3 class="text-xl font-bold text-white mb-6"><i class="fa-solid fa-tower-cell text-green-500 mr-2"></i>Gateway MikroTik LoRa8</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-lg border border-slate-700">
+                                <span class="text-slate-400 font-medium">Status da Conexão Principal</span>
+                                <span class="text-green-400 font-bold text-lg"><i class="fa-solid fa-link mr-1"></i> ONLINE</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-lg border border-blue-500/30 transition-colors" id="lora-box">
+                                <span class="text-slate-400 font-medium">Último Uplink de Telemetria</span>
+                                <span class="text-blue-400 font-mono font-bold text-lg" id="lora-rssi">RSSI: -68 dBm</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-lg border border-slate-700">
+                                <span class="text-slate-400 font-medium">Frequência Portadora (CSS)</span>
+                                <span class="text-white font-mono font-bold">915.0 MHz</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-lg border border-slate-700">
+                                <span class="text-slate-400 font-medium">Volume de Pacotes Cifrados</span>
+                                <span class="text-purple-400 font-mono font-bold text-lg"><i class="fa-solid fa-database mr-1"></i> <span id="lora-packets">14,582</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-despacho" class="tab-content hidden space-y-8">
+                <div class="glass-panel p-6 rounded-2xl border border-slate-700">
+                    <h3 class="text-xl font-bold text-white mb-2"><i class="fa-solid fa-file-pdf text-red-500 mr-2"></i> Emissão Oficial de Boletim (Gerador PDF)</h3>
+                    <p class="text-slate-400 text-sm mb-6">Gere documentos legais contendo os parâmetros coletados pelos sensores e assinaturas eletrônicas.</p>
+                    
+                    <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700 mt-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-300 mb-2">Condição do Mar (Cores do Laudo)</label>
+                                <select id="form-condicao" class="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-3 focus:border-blue-500 outline-none transition">
+                                    <option value="verde">🟢 NORMAL (Seguro)</option>
+                                    <option value="amarelo">🟡 ATENÇÃO (Cuidado)</option>
+                                    <option value="vermelho" selected>🔴 PERIGO (Proibido)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-300 mb-2">Motivo da Emissão / Risco</label>
+                                <select id="form-motivo" class="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-3 py-3 focus:border-blue-500 outline-none transition">
+                                    <option value="Corrente de Retorno Forte (Repuxo)" selected>Corrente de Retorno</option>
+                                    <option value="Avistamento de Tubarão / Risco Biológico">Tubarão (Fauna)</option>
+                                    <option value="Ventos Fortes e Ondas Altas (Ressaca)">Condições Climáticas</option>
+                                    <option value="Variação Brusca e Rápida de Maré">Variação de Maré</option>
+                                    <option value="Nenhum (Mar Seguro e Estável)">Nenhum Risco Ativo</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-300 mb-2 text-blue-400">Assinatura Digital (Responsável)</label>
+                                <select id="form-assinatura" class="w-full bg-blue-900/30 border border-blue-500 text-white rounded-lg px-3 py-3 font-bold focus:border-blue-400 outline-none transition">
+                                    <option value="Bruno Otávio Jeronimo Melo|Engenharia de Dados, Banco de Dados e Programador">Bruno Otávio</option>
+                                    <option value="José Victor Alves Oliveira|Engenharia de Backend">José Victor</option>
+                                    <option value="Gustavo Henrique Morais Dos Santos|Integração de Hardware e ESP32">Gustavo Henrique</option>
+                                    <option value="João Olavo Diniz Cavalcanti|Especialista em Redes LoRaWAN">João Olavo</option>
+                                    <option value="Deyvid Francisco Ferreira Da Silva|Gestão de Projetos e UX">Deyvid Francisco</option>
+                                    <option value="Erich Wagner Teixeira B. Barbosa|Desenvolvimento Front-end">Erich Wagner</option>
+                                    <option value="Nathan Alves Queiroz|Modelagem 3D e Maquete">Nathan Alves</option>
+                                    <option value="Otacilio Vinicius Fagundes da Silva|Pesquisa Oceanográfica">Otacilio Vinicius</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button onclick="gerarPDFReal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.4)] transition flex items-center justify-center gap-3 text-lg border border-blue-400">
+                            <i class="fa-solid fa-print"></i> Processar e Baixar Documento Oficial em PDF
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-c4isr" class="tab-content hidden space-y-8 fade-in">
+                
+                <div>
+                    <h3 class="text-2xl font-bold text-white mb-4 flex items-center gap-3"><i class="fa-solid fa-truck-medical text-red-500"></i> Painel Multi-Forças de Despacho Rápido</h3>
+                    <p class="text-slate-400 mb-6">Em caso de falha sistêmica ou confirmação visual de vítimas, utilize os atalhos governamentais para integrar as forças de segurança.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <button onclick="dispatchForce('SAMU 192', 'fa-ambulance', 'Ambulâncias UTI Móvel despachadas. ETA: 4 minutos.', 'text-red-500', 'border-red-500/50')" class="bg-slate-800 hover:bg-slate-700 text-white p-6 rounded-xl border border-red-500/30 shadow-lg flex flex-col items-center gap-4 group transition-all">
+                            <div class="p-4 bg-red-900/30 rounded-full group-hover:scale-110 transition-transform"><i class="fa-solid fa-ambulance text-4xl text-red-500"></i></div>
+                            <div class="text-center"><span class="block font-bold text-lg text-white">SAMU (Resgate Médico)</span><span class="text-sm text-slate-400">Suporte Avançado de Vida</span></div>
+                        </button>
+
+                        <button onclick="dispatchForce('BPTur / Polícia', 'fa-building-shield', 'Viaturas da Polícia de Turismo em deslocamento para isolamento da areia.', 'text-blue-500', 'border-blue-500/50')" class="bg-slate-800 hover:bg-slate-700 text-white p-6 rounded-xl border border-blue-500/30 shadow-lg flex flex-col items-center gap-4 group transition-all">
+                            <div class="p-4 bg-blue-900/30 rounded-full group-hover:scale-110 transition-transform"><i class="fa-solid fa-building-shield text-4xl text-blue-500"></i></div>
+                            <div class="text-center"><span class="block font-bold text-lg text-white">Polícia Militar (BPTur)</span><span class="text-sm text-slate-400">Controle de Multidões e Isolamento</span></div>
+                        </button>
+
+                        <button onclick="dispatchForce('Bombeiros Marítimos', 'fa-life-ring', 'Guarnições adjacentes notificadas via rádio TETRA.', 'text-orange-500', 'border-orange-500/50')" class="bg-slate-800 hover:bg-slate-700 text-white p-6 rounded-xl border border-orange-500/30 shadow-lg flex flex-col items-center gap-4 group transition-all">
+                            <div class="p-4 bg-orange-900/30 rounded-full group-hover:scale-110 transition-transform"><i class="fa-solid fa-life-ring text-4xl text-orange-500"></i></div>
+                            <div class="text-center"><span class="block font-bold text-lg text-white">Grupamento Marítimo</span><span class="text-sm text-slate-400">Reforço de Salva-vidas</span></div>
+                        </button>
+
+                        <button onclick="dispatchForce('Marinha do Brasil', 'fa-ship', 'Capitania dos Portos notificada. Embarcações em prontidão.', 'text-indigo-400', 'border-indigo-500/50')" class="bg-slate-800 hover:bg-slate-700 text-white p-6 rounded-xl border border-indigo-500/30 shadow-lg flex flex-col items-center gap-4 group transition-all">
+                            <div class="p-4 bg-indigo-900/30 rounded-full group-hover:scale-110 transition-transform"><i class="fa-solid fa-ship text-4xl text-indigo-400"></i></div>
+                            <div class="text-center"><span class="block font-bold text-lg text-white">Capitania dos Portos</span><span class="text-sm text-slate-400">Embarcações de Resgate Rápido</span></div>
+                        </button>
+
+                        <button onclick="dispatchForce('Defesa Civil', 'fa-cloud-showers-heavy', 'Alerta de ressaca severa emitido. Sirenes municipais engatilhadas.', 'text-yellow-500', 'border-yellow-500/50')" class="bg-slate-800 hover:bg-slate-700 text-white p-6 rounded-xl border border-yellow-500/30 shadow-lg flex flex-col items-center gap-4 group transition-all">
+                            <div class="p-4 bg-yellow-900/30 rounded-full group-hover:scale-110 transition-transform"><i class="fa-solid fa-cloud-showers-heavy text-4xl text-yellow-500"></i></div>
+                            <div class="text-center"><span class="block font-bold text-lg text-white">Defesa Civil</span><span class="text-sm text-slate-400">Gestão de Desastres e Clima</span></div>
+                        </button>
+
+                        <button onclick="dispatchForce('IBAMA / Tamar', 'fa-fish', 'Biólogos acionados para captura e realocação de megafauna marinha.', 'text-emerald-500', 'border-emerald-500/50')" class="bg-slate-800 hover:bg-slate-700 text-white p-6 rounded-xl border border-emerald-500/30 shadow-lg flex flex-col items-center gap-4 group transition-all">
+                            <div class="p-4 bg-emerald-900/30 rounded-full group-hover:scale-110 transition-transform"><i class="fa-solid fa-fish text-4xl text-emerald-500"></i></div>
+                            <div class="text-center"><span class="block font-bold text-lg text-white">Órgãos Ambientais</span><span class="text-sm text-slate-400">Proteção de Tubarões / Fauna</span></div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl border border-slate-700 mt-8">
+                    <h3 class="text-xl font-bold text-white mb-2"><i class="fa-solid fa-microchip text-blue-400 mr-2"></i> Diagnóstico de Hardware Embarcado (Edge Computing)</h3>
+                    <p class="text-slate-400 text-sm mb-6">Status dos sensores físicos especificados no escopo do Projeto Integrador.</p>
+                    
+                    <div class="overflow-x-auto rounded-lg border border-slate-700">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="bg-slate-800 text-slate-300 uppercase tracking-wider text-xs">
+                                    <th class="p-4 border-b border-slate-700">Componente</th>
+                                    <th class="p-4 border-b border-slate-700">Especificação Técnica</th>
+                                    <th class="p-4 border-b border-slate-700">Status Lógico</th>
+                                    <th class="p-4 border-b border-slate-700 text-right">Integridade</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-slate-400 bg-slate-900/50">
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 border-b border-slate-700 font-bold text-white"><i class="fa-solid fa-microchip mr-2"></i> Microcontrolador CPU</td>
+                                    <td class="p-4 border-b border-slate-700 font-mono text-xs">ESP32-S3 Dual Core 240MHz</td>
+                                    <td class="p-4 border-b border-slate-700"><span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold border border-green-500/30">ATIVO (RTOS)</span></td>
+                                    <td class="p-4 border-b border-slate-700 text-right text-white">99.8%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 border-b border-slate-700 font-bold text-white"><i class="fa-solid fa-broadcast-tower mr-2"></i> Rádio Transmissor</td>
+                                    <td class="p-4 border-b border-slate-700 font-mono text-xs">Semtech SX1276 LoRa 915MHz</td>
+                                    <td class="p-4 border-b border-slate-700"><span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold border border-green-500/30">TX/RX ESTÁVEL</span></td>
+                                    <td class="p-4 border-b border-slate-700 text-right text-white">100%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 border-b border-slate-700 font-bold text-white"><i class="fa-solid fa-water mr-2"></i> Transdutor Sonar Doppler</td>
+                                    <td class="p-4 border-b border-slate-700 font-mono text-xs">MaxBotix MB7066 XL-MaxSonar</td>
+                                    <td class="p-4 border-b border-slate-700"><span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs font-bold border border-blue-500/30">LENDO FLUXO</span></td>
+                                    <td class="p-4 border-b border-slate-700 text-right text-white">98.5%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 border-b border-slate-700 font-bold text-white"><i class="fa-solid fa-volume-high mr-2"></i> Emissor Acústico Tubarão</td>
+                                    <td class="p-4 border-b border-slate-700 font-mono text-xs">Piezoelétrico 80W (20-50kHz)</td>
+                                    <td class="p-4 border-b border-slate-700"><span class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-bold border border-slate-500">STANDBY</span></td>
+                                    <td class="p-4 border-b border-slate-700 text-right text-white">100%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 border-b border-slate-700 font-bold text-white"><i class="fa-solid fa-battery-three-quarters mr-2"></i> Fonte de Energia BMS</td>
+                                    <td class="p-4 border-b border-slate-700 font-mono text-xs">Bateria LiFePO4 12V 20Ah + Solar</td>
+                                    <td class="p-4 border-b border-slate-700"><span class="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded text-xs font-bold border border-yellow-500/30">CARREGANDO</span></td>
+                                    <td class="p-4 border-b border-slate-700 text-right text-white">95.0%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 border-b border-slate-700 font-bold text-white"><i class="fa-solid fa-satellite mr-2"></i> Módulo GPS RTK</td>
+                                    <td class="p-4 border-b border-slate-700 font-mono text-xs">U-blox NEO-M8N</td>
+                                    <td class="p-4 border-b border-slate-700"><span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold border border-green-500/30">FIXED (12 SAT)</span></td>
+                                    <td class="p-4 border-b border-slate-700 text-right text-white">100%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 border-b border-slate-700 font-bold text-white"><i class="fa-solid fa-shield-halved mr-2"></i> Chassi de Borda</td>
+                                    <td class="p-4 border-b border-slate-700 font-mono text-xs">Policarbonato IP68 Anti-UV</td>
+                                    <td class="p-4 border-b border-slate-700"><span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold border border-green-500/30">VEDAÇÃO OK</span></td>
+                                    <td class="p-4 border-b border-slate-700 text-right text-white">100%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-700">
+                        <h3 class="text-lg font-bold text-white mb-2"><i class="fa-solid fa-cube text-purple-400 mr-2"></i> Controle PoC (Maquete Física)</h3>
+                        <p class="text-slate-400 text-xs mb-6 border-b border-slate-700 pb-4">Conexão em tempo real com o Arduino Mega e matriz de LEDs WS2812B instalados na resina epóxi da maquete acadêmica.</p>
+                        
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-lg">
+                                <div><span class="block text-white font-bold">Iluminação Oceânica (Resina)</span><span class="text-xs text-slate-400">Controla fita LED WS2812B</span></div>
+                                <button onclick="toggleMaquete(this, 'blue')" class="bg-blue-600 w-12 h-6 rounded-full relative transition-colors focus:outline-none"><span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span></button>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-lg">
+                                <div><span class="block text-white font-bold">Forçar Animação de Repuxo</span><span class="text-xs text-slate-400">LEDs vermelhos em fluxo na maquete</span></div>
+                                <button onclick="toggleMaquete(this, 'red')" class="bg-slate-600 w-12 h-6 rounded-full relative transition-colors focus:outline-none"><span class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span></button>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-lg">
+                                <div><span class="block text-white font-bold">Transceptor NRF24L01</span><span class="text-xs text-slate-400">Simulador de Link LoRa local</span></div>
+                                <button onclick="toggleMaquete(this, 'green')" class="bg-green-600 w-12 h-6 rounded-full relative transition-colors focus:outline-none"><span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span></button>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-lg">
+                                <div><span class="block text-white font-bold">Buzzer Piezo do Posto</span><span class="text-xs text-slate-400">Alarme físico embutido na madeira</span></div>
+                                <button onclick="toggleMaquete(this, 'yellow')" class="bg-slate-600 w-12 h-6 rounded-full relative transition-colors focus:outline-none"><span class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-700 bg-black relative overflow-hidden">
+                        <div class="scanline"></div>
+                        <h3 class="text-sm font-bold text-green-500 mb-2 border-b border-green-900 pb-2 flex justify-between"><i class="fa-solid fa-terminal mr-2"></i> ROOT@SACPV-CORE-01 <span class="text-xs">Uptime: 45 Days</span></h3>
+                        <div class="terminal-font text-xs text-green-400 h-64 overflow-y-auto space-y-1" id="terminal-output">
+                            <div><span class="text-slate-500">[00:00:01]</span> Inicializando kernel Linux (Edge node)... OK</div>
+                            <div><span class="text-slate-500">[00:00:02]</span> Montando sistema de arquivos SPIFFS... OK</div>
+                            <div><span class="text-slate-500">[00:00:03]</span> Inicializando Modulo de RF SX1276... [FREQ 915.0]</div>
+                            <div><span class="text-slate-500">[00:00:04]</span> Rotina DSP ativa. Carregando filtros Kalman.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+        </div>
+    </main>
+
+    <div id="pdf-template-container">
+        <div id="documento-pdf" style="width: 800px; padding: 40px; background: white; color: black; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #1e3a8a; padding-bottom: 15px; margin-bottom: 25px;">
+                <div>
+                    <h1 style="color: #1e3a8a; margin: 0; font-size: 26px; letter-spacing: -0.5px;">BOLETIM OFICIAL SACPV</h1>
+                    <p style="margin: 3px 0 0 0; font-size: 13px; color: #475569; font-weight: bold;">Sistema de Alerta Costeiro e Preservação da Vida</p>
+                </div>
+                <div style="text-align: right; font-size: 11px; color: #64748b;">
+                    <p style="margin: 0;">ID do Relatório: <span style="font-family: monospace;">SACPV-2026-X89B</span></p>
+                    <p style="margin: 0;">Unidade Regional: Pernambuco (BR)</p>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 25px; font-size: 13px; background-color: #f1f5f9; padding: 15px; border-radius: 6px;">
+                <div>
+                    <p style="margin: 0 0 5px 0;"><strong>Data/Hora de Emissão:</strong> <span id="pdf-data"></span></p>
+                    <p style="margin: 0;"><strong>Posto de Monitoramento:</strong> Setor Sul - Praia de Boa Viagem</p>
+                </div>
+                <div style="text-align: right;">
+                    <p style="margin: 0 0 5px 0;"><strong>Status LoRaWAN:</strong> <span style="color: #16a34a; font-weight: bold;">Estável / Conectado</span></p>
+                    <p style="margin: 0;"><strong>Temperatura da Água:</strong> 26.5 °C</p>
+                </div>
+            </div>
+
+            <div id="pdf-status-box" style="background-color: #fee2e2; border-left: 8px solid #dc2626; padding: 20px; margin-bottom: 30px; border-radius: 4px;">
+                <h2 id="pdf-status-title" style="color: #dc2626; margin: 0 0 10px 0; font-size: 18px; text-transform: uppercase;">STATUS DA OCORRÊNCIA</h2>
+                <div style="font-size: 14px; line-height: 1.6;">
+                    <p style="margin: 0;"><strong>Classificação do Banho:</strong> <span id="pdf-condicao" style="font-weight: bold;"></span></p>
+                    <p style="margin: 0;"><strong>Anomalia Detectada:</strong> <span id="pdf-motivo"></span></p>
+                </div>
+            </div>
+
+            <h3 style="color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; font-size: 15px; margin-bottom: 15px;">Leituras da Malha de Sensoriamento (Edge Computing)</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 40px; text-align: left;">
+                <thead>
+                    <tr style="background-color: #e2e8f0; color: #334155;">
+                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Identificação</th>
+                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Vetor de Fluxo (DSP)</th>
+                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Estado da Bateria</th>
+                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Condição Lógica</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; font-weight: bold;">Boia B-01</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1;">0.31 m/s</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1;">100% (LiFePO4)</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; color: #16a34a;">Nominal</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; font-weight: bold;">Boia B-03 (Pivô)</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; font-weight: bold;" id="pdf-boia-critica">Pico de 2.15 m/s</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1;">95% (LiFePO4)</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; font-weight: bold;" id="pdf-boia-status">Gatilho Disparado</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; font-weight: bold;">Marégrafo B-05</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1;">Pressão Variável</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1;">85% (LiFePO4)</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e1; color: #ca8a04;">Atenção Maré</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="text-align: center; margin-top: 50px;">
+                <p style="margin-bottom: -15px; font-size: 13px; color: #475569;">Laudo Técnico Assinado Eletronicamente por:</p>
+                <div id="pdf-assinatura-visual" class="signature-font"></div>
+                <div style="width: 450px; border-top: 1px solid #334155; margin: 5px auto 10px auto;"></div>
+                <p style="margin: 0; font-weight: bold; font-size: 16px; color: #0f172a;" id="pdf-nome"></p>
+                <p style="margin: 0; color: #3b82f6; font-size: 13px; font-weight: bold;" id="pdf-cargo"></p>
+            </div>
+
+            <div style="margin-top: 60px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px;">
+                <p style="font-size: 12px; font-weight: bold; color: #1e293b; text-align: center; margin-top: 0; margin-bottom: 10px;">Projeto Integrador 2026 - Equipe Desenvolvedora (Grupo Silas)</p>
+                <p style="font-size: 11px; color: #64748b; text-align: center; line-height: 1.6; margin: 0;">
+                    <strong>José Victor Alves Oliveira</strong> • <strong>Gustavo Henrique Morais Dos Santos</strong> • <strong>João Olavo Diniz Cavalcanti</strong><br>
+                    <strong>Deyvid Francisco Ferreira Da Silva</strong> • <strong>Erich Wagner Teixeira Bezerra Barbosa</strong><br>
+                    <strong>Bruno Otávio Jeronimo Melo</strong> • <strong>Nathan Alves Queiroz</strong> • <strong>Otacilio Vinicius Fagundes da Silva</strong>
+                </p>
+            </div>
+            
+            <p style="text-align: center; font-size: 10px; color: #94a3b8; margin-top: 20px;">Este documento possui validade legal e foi gerado criptograficamente pelo sistema centralizado do Governo Estadual.</p>
+        </div>
+    </div>
+
+    <div id="loadingModal" class="fixed inset-0 bg-slate-900/95 z-50 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="text-center"><i class="fa-solid fa-circle-notch fa-spin text-7xl text-blue-500 mb-6 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]"></i><h3 class="text-3xl font-bold text-white tracking-wider">Processando...</h3></div>
+    </div>
+
+    <div id="dispatchModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-slate-800 border border-slate-600 rounded-2xl p-8 max-w-md w-full text-center shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+            <div id="dispatchGlow" class="absolute inset-0 opacity-20 pointer-events-none transition-colors"></div>
+            <i id="dispatchIcon" class="fa-solid fa-truck-medical text-6xl mb-6 relative z-10"></i>
+            <h3 id="dispatchTitle" class="text-2xl font-black text-white mb-2 uppercase relative z-10">Unidade Acionada</h3>
+            <p id="dispatchText" class="text-slate-300 mb-8 font-medium relative z-10">Aguardando confirmação do centro de operações.</p>
+            <button onclick="document.getElementById('dispatchModal').classList.add('hidden')" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-xl w-full transition border border-slate-500 relative z-10 shadow-lg uppercase tracking-wider">Ciente / Fechar</button>
+        </div>
+    </div>
+
+    <script>
+        // ======= FUNÇÕES DE DESPACHO E MAQUETE =======
+        function dispatchForce(title, iconClass, message, colorClass, borderColorClass) {
+            const modal = document.getElementById('dispatchModal');
+            const icon = document.getElementById('dispatchIcon');
+            const mTitle = document.getElementById('dispatchTitle');
+            const mText = document.getElementById('dispatchText');
+            const glow = document.getElementById('dispatchGlow');
+            
+            icon.className = `fa-solid ${iconClass} text-7xl mb-6 relative z-10 animate-bounce ${colorClass}`;
+            mTitle.innerText = `[DESPACHO] ${title}`;
+            mTitle.className = `text-2xl font-black mb-2 uppercase relative z-10 ${colorClass}`;
+            mText.innerText = message;
+            
+            // Extrai a cor tailwind (ex: text-red-500 -> bg-red-500)
+            const baseColor = colorClass.replace('text-', 'bg-');
+            glow.className = `absolute inset-0 opacity-20 pointer-events-none transition-colors ${baseColor}`;
+            
+            modal.classList.remove('hidden');
+        }
+
+        function toggleMaquete(btn, color) {
+            const isOff = btn.classList.contains('bg-slate-600');
+            const circle = btn.querySelector('span');
+            
+            if(isOff) {
+                btn.classList.remove('bg-slate-600');
+                btn.classList.add(`bg-${color}-600`);
+                circle.classList.replace('left-1', 'right-1');
+                appendTerminalLog(`[MAQUETE POC] Comando recebido: Ativando pino Digital ${color.toUpperCase()}.`);
+            } else {
+                btn.classList.remove(`bg-${color}-600`);
+                btn.classList.add('bg-slate-600');
+                circle.classList.replace('right-1', 'left-1');
+                appendTerminalLog(`[MAQUETE POC] Comando recebido: Desativando pino Digital ${color.toUpperCase()}.`);
+            }
+        }
+
+        function appendTerminalLog(msg) {
+            const term = document.getElementById('terminal-output');
+            const now = new Date().toLocaleTimeString('pt-BR');
+            const newDiv = document.createElement('div');
+            newDiv.innerHTML = `<span class="text-slate-500">[${now}]</span> ${msg}`;
+            term.appendChild(newDiv);
+            term.scrollTop = term.scrollHeight; // Auto scroll
+        }
+
+        // ======= SIMULADOR DE ESTADOS GLOBAIS =======
+        const systemStates = [
+            { type: 'normal', boxColor: 'green', icon: 'fa-check-circle', title: 'OPERAÇÃO NORMALIZADA', subtitle: 'Mar calmo e seguro. Sistema em monitoramento padrão.', b01: 'normal', b02: 'normal', b03: 'normal', b04: 'normal', b05: 'normal' },
+            { type: 'atencao', boxColor: 'yellow', icon: 'fa-triangle-exclamation', title: 'ALERTA DE ATENÇÃO', subtitle: 'Ventos fortes e variação brusca de maré detectados.', b01: 'normal', b02: 'normal', b03: 'normal', b04: 'normal', b05: 'alerta' },
+            { type: 'perigo_corrente', boxColor: 'red', icon: 'fa-triangle-exclamation', title: 'PERIGO IMINENTE NA ÁGUA', subtitle: 'Formação Crítica de Corrente de Retorno (Repuxo).', b01: 'normal', b02: 'normal', b03: 'critica', b04: 'normal', b05: 'alerta' },
+            { type: 'perigo_fauna', boxColor: 'red', icon: 'fa-fish-fins', title: 'PERIGO BIOLÓGICO: TUBARÃO', subtitle: 'Assinatura acústica de megafauna detectada no setor norte.', b01: 'normal', b02: 'critica_fauna', b03: 'normal', b04: 'normal', b05: 'normal' }
+        ];
+
+        let currentStateIndex = 0;
+        let autoCycleInterval;
+        let systemCritical = false;
+
+        function applySystemState(state) {
+            systemCritical = (state.boxColor === 'red');
+            const mainBox = document.getElementById('main-alert-box');
+            const iconBg = document.getElementById('alert-icon-bg');
+            const icon = document.getElementById('alert-icon');
+            const title = document.getElementById('alert-title');
+            const subtitle = document.getElementById('alert-subtitle');
+
+            mainBox.className = `glass-panel rounded-2xl p-8 border-l-8 border-${state.boxColor}-600 bg-gradient-to-r from-${state.boxColor}-900/40 to-transparent flex flex-col xl:flex-row justify-between items-center gap-8 shadow-2xl relative overflow-hidden transition-all duration-700`;
+            iconBg.className = `bg-${state.boxColor}-500/20 p-4 rounded-full border border-${state.boxColor}-500/50 transition-colors`;
+            
+            if(state.boxColor === 'red') iconBg.classList.add('pulse-red');
+            else if(state.boxColor === 'yellow') iconBg.classList.add('pulse-yellow');
+
+            icon.className = `fa-solid ${state.icon} text-4xl text-${state.boxColor}-500 transition-colors`;
+            title.className = `text-4xl font-extrabold text-${state.boxColor}-500 tracking-tight drop-shadow-md transition-colors`;
+            title.innerText = state.title;
+            subtitle.className = `text-${state.boxColor}-300 text-lg mt-1 font-medium transition-colors`;
+            subtitle.innerText = state.subtitle;
+
+            updateBoiaUI('boia-03', state.b03, 'Repuxo: ');
+            updateBoiaUI('boia-02', state.b02, 'Tubarão! ');
+            updateBoiaUI('boia-05', state.b05, 'Maré: ');
+            
+            if(state.type !== 'normal') appendTerminalLog(`[WARNING] Mudança de estado do sistema. Novo código: ${state.type.toUpperCase()}`);
+        }
+
+        function updateBoiaUI(idBase, condition, prefix) {
+            const card = document.getElementById(`${idBase}-card`);
+            const title = document.querySelector(`#${idBase}-card h4`);
+            const text = document.getElementById(`${idBase}-text`);
+
+            if(condition === 'normal') {
+                card.className = "glass-panel rounded-xl p-5 border-t-4 border-green-500 transition-colors duration-500";
+                title.innerText = idBase.toUpperCase().replace('IA-', '');
+                text.className = "text-sm text-green-400 font-bold uppercase";
+                text.innerHTML = `Normal: <span id="vel-${idBase.replace('boia-','b')}">${(Math.random()*0.2 + 0.2).toFixed(2)}</span> m/s`;
+            } 
+            else if(condition === 'critica' || condition === 'critica_fauna') {
+                card.className = "bg-red-950/80 rounded-xl p-5 border-2 border-red-500 pulse-red transform scale-105 shadow-2xl transition-all duration-500";
+                title.innerText = `${idBase.toUpperCase().replace('IA-', '')} (CRÍTICA)`;
+                text.className = "text-sm text-red-400 font-bold uppercase mb-2";
+                let speed = (Math.random()*1.0 + 1.8).toFixed(2);
+                text.innerHTML = `${prefix} <span id="vel-${idBase.replace('boia-','b')}" class="text-white text-lg">${speed}</span> m/s`;
+            }
+            else if(condition === 'alerta') {
+                card.className = "glass-panel rounded-xl p-5 border-t-4 border-yellow-500 transition-colors duration-500";
+                title.innerText = idBase.toUpperCase().replace('IA-', '');
+                text.className = "text-sm text-yellow-400 font-bold uppercase";
+                text.innerHTML = `ALERTA MARÉ ALTA`;
+            }
+        }
+
+        function cycleStates() {
+            currentStateIndex++;
+            if (currentStateIndex >= systemStates.length) currentStateIndex = 0;
+            applySystemState(systemStates[currentStateIndex]);
+        }
+
+        // Troca de estado a cada 15 segundos para fins de demonstração
+        autoCycleInterval = setInterval(cycleStates, 15000);
+
+        function forceNormalState() {
+            clearInterval(autoCycleInterval);
+            currentStateIndex = 0;
+            applySystemState(systemStates[0]);
+            document.getElementById('auto-mode-text').innerText = "Forçado Manualmente";
+            document.getElementById('auto-mode-text').className = "text-green-400 font-bold";
+            appendTerminalLog(`[ADMIN] Comando Override: Sistema forçado para estado NORMAL.`);
+            
+            setTimeout(() => {
+                document.getElementById('auto-mode-text').innerText = "Automático Rotativo";
+                document.getElementById('auto-mode-text').className = "text-blue-400 font-mono text-sm";
+                autoCycleInterval = setInterval(cycleStates, 15000);
+                appendTerminalLog(`[SYSTEM] Controle automático devolvido ao algoritmo de Borda.`);
+            }, 30000);
+        }
+
+        // ======= RELÓGIO E NAVEGAÇÃO =======
+        function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR'); }
+        setInterval(updateClock, 1000); updateClock();
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => { el.classList.add('hidden'); el.classList.remove('block'); });
+            document.getElementById('tab-' + tabId).classList.remove('hidden'); document.getElementById('tab-' + tabId).classList.add('block');
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + tabId).classList.add('active');
+            
+            const titles = {
+                'dashboard': 'Visão Geral do Perímetro', 'mapa': 'Cartografia Estratégica (GPS RTK)', 
+                'dsp': 'Análise de Sinais e Hidrodinâmica', 'camera': 'Videomonitoramento Costeiro', 
+                'lora': 'Infraestrutura de Rede LoRaWAN', 'despacho': 'Emissão de Boletins Oficiais (PDF)',
+                'c4isr': 'Central de Despacho Multi-Forças e Diagnóstico de Hardware'
+            };
+            document.getElementById('header-title').textContent = titles[tabId];
+            
+            if(tabId === 'c4isr') appendTerminalLog("[UI] Tela C4ISR ativada pelo operador.");
+        }
+
+        // ======= GRÁFICO E SIMULADOR VIVO =======
+        const ctx = document.getElementById('dspChart').getContext('2d');
+        const dspChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['-30s', '-25s', '-20s', '-15s', '-10s', '-5s', 'AGORA'],
+                datasets: [
+                    { label: 'Velocidade Média B-03 (m/s)', data: [0.35, 0.42, 0.38, 0.65, 1.10, 1.85, 2.15], borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 3, fill: true, tension: 0.4 },
+                    { label: 'Limiar Crítico', data: [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5], borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, fill: false }
+                ]
+            }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 500 } }
+        });
+
+        let totalPackets = 14582;
+
+        function simulateLiveData() {
+            const state = systemStates[currentStateIndex];
+            let currentCriticalSpeed = (state.b03 === 'critica') ? (Math.random() * 1.0 + 1.8).toFixed(2) : (Math.random() * 0.3 + 0.2).toFixed(2);
+            
+            const b03Span = document.getElementById('vel-b03');
+            if(b03Span) b03Span.innerText = currentCriticalSpeed;
+            
+            const nowTime = new Date().toLocaleTimeString('pt-BR', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+            dspChart.data.labels.push(nowTime); dspChart.data.labels.shift(); 
+            
+            if(state.b03 !== 'critica') { dspChart.data.datasets[0].borderColor = '#22c55e'; dspChart.data.datasets[0].backgroundColor = 'rgba(34, 197, 94, 0.1)'; }
+            else { dspChart.data.datasets[0].borderColor = '#ef4444'; dspChart.data.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.1)'; }
+            
+            dspChart.data.datasets[0].data.push(currentCriticalSpeed); dspChart.data.datasets[0].data.shift();
+            dspChart.update(); 
+
+            if(document.getElementById('lora-packets')) {
+                totalPackets += Math.floor(Math.random() * 5); 
+                document.getElementById('lora-packets').innerText = totalPackets.toLocaleString('pt-BR');
+                document.getElementById('lora-rssi').innerText = `RSSI: ${Math.floor(Math.random() * 10) - 75} dBm`;
+            }
+            
+            // Log terminal esporádico
+            if(Math.random() > 0.8) appendTerminalLog(`[RX LoRa] Pacote recebido B-03. Checksum OK.`);
+        }
+        setInterval(simulateLiveData, 2500);
+
+        // ======= GERADOR DE PDF REAL =======
+        function gerarPDFReal() {
+            document.getElementById('loadingModal').classList.remove('hidden');
+            appendTerminalLog("[SYSTEM] Renderização de documento PDF iniciada...");
+
+            const condicaoSelect = document.getElementById('form-condicao');
+            const condicaoValue = condicaoSelect.value;
+            const condicaoText = condicaoSelect.options[condicaoSelect.selectedIndex].text;
+            
+            const motivo = document.getElementById('form-motivo').value;
+            const selecionado = document.getElementById('form-assinatura').value.split('|');
+
+            document.getElementById('pdf-data').innerText = new Date().toLocaleString('pt-BR');
+            document.getElementById('pdf-condicao').innerText = condicaoText;
+            document.getElementById('pdf-motivo').innerText = motivo;
+            
+            const statusBox = document.getElementById('pdf-status-box');
+            const statusTitle = document.getElementById('pdf-status-title');
+            const txtBoiaStatus = document.getElementById('pdf-boia-status');
+            const txtBoiaVel = document.getElementById('pdf-boia-critica');
+
+            // DINÂMICA DE CORES
+            if(condicaoValue === 'verde') {
+                statusBox.style.backgroundColor = '#dcfce7'; statusBox.style.borderLeftColor = '#16a34a'; statusTitle.style.color = '#16a34a';
+                txtBoiaStatus.innerText = "Nominal"; txtBoiaStatus.style.color = "#16a34a"; txtBoiaVel.innerText = "0.35 m/s";
+            } else if(condicaoValue === 'amarelo') {
+                statusBox.style.backgroundColor = '#fef08a'; statusBox.style.borderLeftColor = '#ca8a04'; statusTitle.style.color = '#ca8a04';
+                txtBoiaStatus.innerText = "Atenção (Pre-Alerta)"; txtBoiaStatus.style.color = "#ca8a04"; txtBoiaVel.innerText = "1.20 m/s";
+            } else {
+                statusBox.style.backgroundColor = '#fee2e2'; statusBox.style.borderLeftColor = '#dc2626'; statusTitle.style.color = '#dc2626';
+                txtBoiaStatus.innerText = "Gatilho Disparado"; txtBoiaStatus.style.color = "#dc2626"; txtBoiaVel.innerText = "Pico de 2.45 m/s";
+            }
+
+            document.getElementById('pdf-assinatura-visual').innerText = selecionado[0];
+            document.getElementById('pdf-nome').innerText = selecionado[0];
+            document.getElementById('pdf-cargo').innerText = selecionado[1];
+
+            const opcoesPDF = {
+                margin:       0,
+                filename:     `Boletim_Oficial_${selecionado[0].split(' ')[0]}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opcoesPDF).from(document.getElementById('documento-pdf')).save().then(() => {
+                setTimeout(() => {
+                    document.getElementById('loadingModal').classList.add('hidden');
+                    appendTerminalLog(`[SYSTEM] PDF ${opcoesPDF.filename} exportado com sucesso.`);
+                }, 1000);
+            });
+        }
+    </script>
+</body>
+</html>
